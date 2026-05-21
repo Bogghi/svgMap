@@ -101,7 +101,19 @@ export default class svgMap {
       showContinentSelector: false,
 
       // Reset zoom on resize
-      resetZoomOnResize: false
+      resetZoomOnResize: false,
+
+      // Static pins: false | string[] | function(countryID, countryValues) => boolean
+      staticPins: false,
+
+      // Default pin fill color
+      pinColor: '#CC0033',
+
+      // Default pin radius in SVG units (viewBox is 2000 × 1001)
+      pinSize: 8,
+
+      // Custom pin element: function(countryID, countryValues) => SVGElement | null
+      onGetPin: null
     };
 
     this.options = Object.assign({}, defaultOptions, options);
@@ -1143,6 +1155,10 @@ export default class svgMap {
       this.createPersistentTooltips(countryElements);
     }
 
+    if (this.options.staticPins) {
+      this.createStaticPins(countryElements);
+    }
+
     let pointerStart = null;
     let activeCountry = null;
 
@@ -1423,6 +1439,74 @@ export default class svgMap {
         this.persistentTooltipGroup.appendChild(tooltipObject);
       }.bind(this)
     );
+  }
+
+  // Create static pins on the map
+
+  createStaticPins(countryElements) {
+    if (this.pinGroup) {
+      this.pinGroup.remove();
+    }
+
+    this.pinGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    this.pinGroup.classList.add('svgMap-pin-group');
+    this.mapImage.appendChild(this.pinGroup);
+
+    countryElements.forEach(
+      function (countryElement) {
+        var countryID = countryElement.getAttribute('data-id');
+        if (!this.shouldShowPin(countryID)) {
+          return;
+        }
+
+        var bb = countryElement.getBBox();
+        var cx = bb.x + bb.width / 2;
+        var cy = bb.y + bb.height / 2;
+        var countryValues = this.options.data.values[countryID];
+        var color =
+          (countryValues && countryValues.pinColor) || this.options.pinColor;
+        var size =
+          (countryValues && countryValues.pinSize) || this.options.pinSize;
+
+        if (typeof this.options.onGetPin === 'function') {
+          var custom = this.options.onGetPin(countryID, countryValues);
+          if (custom) {
+            custom.setAttribute(
+              'transform',
+              'translate(' + cx + ',' + cy + ')'
+            );
+            this.pinGroup.appendChild(custom);
+            return;
+          }
+        }
+
+        var circle = document.createElementNS(
+          'http://www.w3.org/2000/svg',
+          'circle'
+        );
+        circle.setAttribute('cx', cx);
+        circle.setAttribute('cy', cy);
+        circle.setAttribute('r', size);
+        circle.setAttribute('fill', color);
+        circle.setAttribute('data-id', countryID);
+        circle.classList.add('svgMap-pin');
+        this.pinGroup.appendChild(circle);
+      }.bind(this)
+    );
+  }
+
+  // Check if a static pin should be shown for a country
+
+  shouldShowPin(countryID) {
+    var pins = this.options.staticPins;
+    var countryValues = this.options.data.values[countryID];
+    if (Array.isArray(pins)) {
+      return pins.indexOf(countryID) !== -1;
+    }
+    if (typeof pins === 'function') {
+      return pins(countryID, countryValues);
+    }
+    return false;
   }
 
   // Check if a persistent tooltip should be shown on load
