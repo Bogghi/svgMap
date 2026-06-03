@@ -3731,10 +3731,45 @@ class svgMap {
           return;
         }
 
-        var bb = countryElement.getBBox();
-        var cx = bb.x + bb.width / 2;
-        var cy = bb.y + bb.height / 2;
         var countryValues = this.options.data.values[countryID];
+        var cx, cy;
+
+        if (
+          countryValues &&
+          countryValues.pinX != null &&
+          countryValues.pinY != null
+        ) {
+          cx = countryValues.pinX;
+          cy = countryValues.pinY;
+        } else {
+          // Split the path at absolute M commands and use the largest sub-path
+          // to avoid overseas territories (islands, colonies) skewing the center.
+          var d = countryElement.getAttribute('d');
+          var subPaths = d.split(/(?=M)/).filter((s) => s.trim().length > 0);
+          var largestBB = null;
+          var largestArea = -1;
+
+          subPaths.forEach(
+            function (subPath) {
+              var tmp = document.createElementNS(
+                'http://www.w3.org/2000/svg',
+                'path'
+              );
+              tmp.setAttribute('d', subPath);
+              this.mapImage.appendChild(tmp);
+              var bb = tmp.getBBox();
+              var area = bb.width * bb.height;
+              if (area > largestArea) {
+                largestArea = area;
+                largestBB = bb;
+              }
+              this.mapImage.removeChild(tmp);
+            }.bind(this)
+          );
+
+          cx = largestBB.x + largestBB.width / 2;
+          cy = largestBB.y + largestBB.height / 2;
+        }
         var color =
           (countryValues && countryValues.pinColor) || this.options.pinColor;
         var size =
