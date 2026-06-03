@@ -113,7 +113,14 @@ export default class svgMap {
       pinSize: 8,
 
       // Custom pin element: function(countryID, countryValues) => SVGElement | null
-      onGetPin: null
+      onGetPin: null,
+
+      // Image URL to use as a pin instead of the default circle (can also be set per-country via values[id].pinImage)
+      pinImage: null,
+
+      // Width and height of the pin image in SVG units (viewBox is 2000 × 1001)
+      pinImageWidth: 20,
+      pinImageHeight: 20
     };
 
     this.options = Object.assign({}, defaultOptions, options);
@@ -1032,7 +1039,7 @@ export default class svgMap {
 
             countryElement.parentNode.insertBefore(
               countryElement,
-              this.persistentTooltipGroup || null
+              this.persistentTooltipGroup || this.pinGroup || null
             );
             countryElement.classList.add('svgMap-active');
 
@@ -1226,7 +1233,7 @@ export default class svgMap {
               .forEach((el) => el.classList.remove('svgMap-active'));
             countryElement.parentNode.insertBefore(
               countryElement,
-              this.persistentTooltipGroup || null
+              this.persistentTooltipGroup || this.pinGroup || null
             );
             countryElement.classList.add('svgMap-active');
             this.setTooltipContent(this.getTooltipContent(countryID));
@@ -1513,6 +1520,31 @@ export default class svgMap {
             this.pinGroup.appendChild(custom);
             return;
           }
+        }
+
+        var pinImage =
+          (countryValues && countryValues.pinImage) || this.options.pinImage;
+
+        if (pinImage) {
+          var pinW =
+            (countryValues && countryValues.pinImageWidth) ||
+            this.options.pinImageWidth;
+          var pinH =
+            (countryValues && countryValues.pinImageHeight) ||
+            this.options.pinImageHeight;
+          var img = document.createElementNS(
+            'http://www.w3.org/2000/svg',
+            'image'
+          );
+          img.setAttribute('href', pinImage);
+          img.setAttribute('x', cx - pinW / 2);
+          img.setAttribute('y', cy - pinH / 2);
+          img.setAttribute('width', pinW);
+          img.setAttribute('height', pinH);
+          img.setAttribute('data-id', countryID);
+          img.classList.add('svgMap-pin');
+          this.pinGroup.appendChild(img);
+          return;
         }
 
         var circle = document.createElementNS(
